@@ -37,6 +37,10 @@ affiliated with, endorsed by, or connected to LinkedIn in any way**.
    - the job posting ID and its canonical URL,
    - what you selected/typed as the expected salary information (max 50 characters),
    - what the extension had detected (kind, value, source),
+   - the detected posting language (one of the supported posting-language
+     codes — English, Italian, French, German, Spanish, Portuguese, Dutch,
+     Polish — or unknown), as stored
+     in the local cache alongside the salary result (cache v3 `postingLang`),
    - the extension version and selected language.
 
    Reports contain **no** name, email, profile data, or job description text.

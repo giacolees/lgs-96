@@ -1,12 +1,12 @@
-(function (root, factory) {
+((root, factory) => {
   const api = factory();
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   } else {
     root.LgsFeedback = api;
   }
-})(typeof globalThis !== "undefined" ? globalThis : self, () => {
-  "use strict";
+})(typeof globalThis === "undefined" ? self : globalThis, () => {
+
 
   const MSG_TYPE = "lgs96:feedbackSubmit";
   const FEEDBACK_ENDPOINT = "https://formsubmit.co/ajax/7c6baeb1b6d6fbd39610b0b1c092933b";
@@ -25,6 +25,7 @@
     "error",
     "unknown",
   ]);
+  const POSTING_LANGS = new Set(["en", "it", "fr", "de", "es", "pt", "nl", "pl", "unknown"]);
 
   function jobUrl(jobId) {
     return `https://www.linkedin.com/jobs/view/${jobId}/`;
@@ -74,6 +75,16 @@
       typeof report.extension_version === "string"
         ? report.extension_version.slice(0, 20)
         : "";
+    // Posting language is optional input; always normalized to a supported
+    // code or unknown so the payload keeps a collision-free posting_language
+    // field distinct from the UI-locale language field above.
+    const rawPostingLang =
+      typeof report.posting_language === "string"
+        ? report.posting_language.trim().toLowerCase()
+        : "";
+    const postingLanguage = POSTING_LANGS.has(rawPostingLang)
+      ? rawPostingLang
+      : "unknown";
     return {
       ok: true,
       payload: {
@@ -88,6 +99,7 @@
         detected_value: detectedValue,
         detected_source: detectedSource,
         language,
+        posting_language: postingLanguage,
         extension_version: extensionVersion,
       },
     };
@@ -118,7 +130,7 @@
       : REQUEST_TIMEOUT_MS;
 
   const controller =
-    typeof AbortController !== "undefined" ? new AbortController() : null;
+    typeof AbortController === "undefined" ? null : new AbortController();
   const timeoutId = controller
     ? setTimeout(() => controller.abort(), timeoutMs)
     : null;

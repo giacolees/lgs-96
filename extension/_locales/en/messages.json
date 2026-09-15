@@ -145,5 +145,56 @@
   },
   "feedback_error": {
     "message": "Something went wrong while sending your report. Please try again."
+  },
+  "posting_lang_en": {
+    "message": "EN"
+  },
+  "posting_lang_it": {
+    "message": "IT"
+  },
+  "posting_lang_fr": {
+    "message": "FR"
+  },
+  "posting_lang_de": {
+    "message": "DE"
+  },
+  "posting_lang_es": {
+    "message": "ES"
+  },
+  "posting_lang_pt": {
+    "message": "PT"
+  },
+  "posting_lang_nl": {
+    "message": "NL"
+  },
+  "posting_lang_pl": {
+    "message": "PL"
+  },
+  "posting_lang_aria": {
+    "message": "Posting language: {name}"
+  },
+  "posting_lang_name_en": {
+    "message": "English"
+  },
+  "posting_lang_name_it": {
+    "message": "Italian"
+  },
+  "posting_lang_name_fr": {
+    "message": "French"
+  },
+  "posting_lang_name_de": {
+    "message": "German"
+  },
+  "posting_lang_name_es": {
+    "message": "Spanish"
+  },
+  "posting_lang_name_pt": {
+    "message": "Portuguese"
+  },
+  "posting_lang_name_nl": {
+    "message": "Dutch"
+  },
+  "posting_lang_name_pl": {
+    "message": "Polish"
   }
 }

@@ -1,23 +1,38 @@
-(function (root, factory) {
+((root, factory) => {
   const api = factory();
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   } else {
     root.LgsCache = api;
   }
-})(typeof globalThis !== "undefined" ? globalThis : self, () => {
-  "use strict";
+})(typeof globalThis === "undefined" ? self : globalThis, () => {
 
-  const SCHEMA_VERSION = 2;
+
+  const SCHEMA_VERSION = 3;
   const TTL_MS = 3 * 24 * 60 * 60 * 1000;
   const SETTING_KEY = "lgs96:cacheEnabled";
   const JOB_PREFIX = "lgs96:job:";
 
   function storage() {
-    const chromeApi = typeof chrome !== "undefined" ? chrome : null;
+    const chromeApi = typeof chrome === "undefined" ? null : chrome;
     return chromeApi && chromeApi.storage && chromeApi.storage.local
       ? chromeApi.storage.local
       : null;
+  }
+
+  const VALID_POSTING_LANGS = ["en", "it", "fr", "de", "es", "pt", "nl", "pl", "unknown"];
+
+  function normalizePostingLang(postingLang) {
+    // Optional 5th param of saveCachedResult; defaults to "unknown" so
+    // existing 4-arg callers stay valid. Explicit null is preserved as
+    // valid (unknown-but-unset); anything else unknown normalizes to "unknown".
+    if (postingLang === undefined) return "unknown";
+    if (postingLang === null) return null;
+    return VALID_POSTING_LANGS.includes(postingLang) ? postingLang : "unknown";
+  }
+
+  function isValidPostingLang(postingLang) {
+    return postingLang === null || VALID_POSTING_LANGS.includes(postingLang);
   }
 
   function jobKey(jobId) {
@@ -59,7 +74,8 @@
         (entry.displayText === null || typeof entry.displayText === "string") &&
         (entry.source === "card" ||
           entry.source === "description" ||
-          entry.source === "cloud")
+          entry.source === "cloud") &&
+        isValidPostingLang(entry.postingLang)
     );
   }
 
@@ -106,7 +122,7 @@
     }
   }
 
-  async function saveCachedResult(jobId, result, displayText, source) {
+  async function saveCachedResult(jobId, result, displayText, source, postingLang = "unknown") {
     const local = storage();
     if (!local || !isValidJobId(jobId) || !isValidResult(result)) return false;
     try {
@@ -118,6 +134,7 @@
         displayText: typeof displayText === "string" && displayText ? displayText : null,
         source:
           source === "card" ? "card" : source === "cloud" ? "cloud" : "description",
+        postingLang: normalizePostingLang(postingLang),
       };
       await local.set({ [jobKey(jobId)]: entry });
       return true;

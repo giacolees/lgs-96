@@ -78,6 +78,22 @@ test("built-in fallback matches the english yaml exactly", () => {
   assert.deepEqual(loc.FALLBACK_CATALOG, enBuilt.entries);
 });
 
+test("posting language keys exist in both catalogs and the fallback", () => {
+  const codes = ["en", "it", "fr", "de", "es", "pt", "nl", "pl"];
+  const keys = codes.flatMap((code) => [`posting_lang_${code}`, `posting_lang_name_${code}`]);
+  keys.push("posting_lang_aria");
+  for (const key of keys) {
+    for (const [name, entries] of [
+      ["en", enBuilt.entries],
+      ["it", itBuilt.entries],
+      ["fallback", loc.FALLBACK_CATALOG],
+    ]) {
+      assert.equal(typeof entries[key], "string", `${name}:${key}`);
+      assert.ok(entries[key].length > 0, `${name}:${key}`);
+    }
+  }
+});
+
 test("parser accepts comments, blank lines and escaped quotes", () => {
   const parsed = loc.parseFlatYaml(
     '# header comment\n\na_key: "He said \\"hi\\""\nanother: "back\\\\slash"\n   # indented comment\n'
