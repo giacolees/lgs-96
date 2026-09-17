@@ -37,6 +37,7 @@
       "js": [
         "src/routes.js",
         "src/salary-parser.js",
+        "src/language-detector.js",
         "src/cache.js",
         "src/localization.js",
         "src/feedback.js",

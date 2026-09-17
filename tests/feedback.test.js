@@ -95,6 +95,27 @@ test("validateReport validates detected fields and defaults leniently", () => {
   assert.equal(lenient.payload.detected_value, "");
 });
 
+test("validateReport keeps posting_language distinct from language", () => {
+  const result = feedback.validateReport({ ...REPORT, language: "it", posting_language: "fr" });
+  assert.equal(result.ok, true);
+  assert.equal(result.payload.language, "it");
+  assert.equal(result.payload.posting_language, "fr");
+});
+
+test("validateReport defaults absent posting_language to unknown", () => {
+  const result = feedback.validateReport(REPORT);
+  assert.equal(result.ok, true);
+  assert.equal(result.payload.posting_language, "unknown");
+});
+
+test("validateReport normalizes garbage posting_language to unknown", () => {
+  for (const posting_language of ["xx", "english", "", 42, null]) {
+    const result = feedback.validateReport({ ...REPORT, posting_language });
+    assert.equal(result.ok, true, String(posting_language));
+    assert.equal(result.payload.posting_language, "unknown", String(posting_language));
+  }
+});
+
 test("submitReport sends the agreed POST contract", async () => {
   const captured = [];
   const fetchImpl = async (url, init) => {

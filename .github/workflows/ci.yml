@@ -22,7 +22,7 @@ jobs:
           tests/scheduler.test.js tests/feedback.test.js
           tests/localization.test.js tests/routes.test.js
           tests/fixture-cards.test.js tests/fixtures-sanitized.test.js
-          tests/cloud-cache.test.js
+          tests/cloud-cache.test.js tests/language-detector.test.js
       - name: Build release package
         run: node scripts/package.js
       - name: Upload package artifact

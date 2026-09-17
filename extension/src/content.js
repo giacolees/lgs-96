@@ -1,5 +1,5 @@
 (() => {
-  "use strict";
+
 
   const RESULT_CARD_SELECTOR =
     '[role="button"][componentkey^="job-card-component-ref-"]';
@@ -14,6 +14,8 @@
   const LIGHT_CLASS = "lgs96-badge__light";
   const LABEL_CLASS = "lgs96-badge__label";
   const FLAG_CLASS = "lgs96-badge__flag";
+  const LANG_CLASS = "lgs96-badge--lang";
+  const LANG_LABEL_CLASS = "lgs96-badge__lang-label";
 
   const STATE_LOADING = "lgs96-badge--loading";
   const STATE_NONE = "lgs96-badge--none";
@@ -28,6 +30,21 @@
   const ERROR_TEXT_KEY = "badge_error";
   const REPORT_ACTION_KEY = "badge_report_action";
   const REPORTED_KEY = "feedback_reported";
+
+  const SUPPORTED_POSTING_LANGS = new Set([
+    "en",
+    "it",
+    "fr",
+    "de",
+    "es",
+    "pt",
+    "nl",
+    "pl",
+  ]);
+
+  function normalizePostingLangCode(code) {
+    return SUPPORTED_POSTING_LANGS.has(code) ? code : "unknown";
+  }
 
   const PRIVACY_POLICY_URL =
     "https://github.com/albertocastronovo/lgs-96/blob/main/PRIVACY.md";
@@ -139,6 +156,82 @@
 
     badge.append(spinner, label);
     return badge;
+  }
+
+  function detectPostingLang(text) {
+    const detector = globalThis.LgsLanguageDetector;
+    if (!detector || typeof detector.detectPostingLanguage !== "function")
+      return "unknown";
+    try {
+      const result = detector.detectPostingLanguage(text);
+      if (result && SUPPORTED_POSTING_LANGS.has(result.code))
+        return result.code;
+    } catch {
+      /* detector must never break salary badges */
+    }
+    return "unknown";
+  }
+
+  function postingLangLabel(code) {
+    const text = loc(`posting_lang_${code}`);
+    return text || code.toUpperCase();
+  }
+
+  function postingLangAria(code) {
+    const name = loc(`posting_lang_name_${code}`) || code;
+    return loc("posting_lang_aria", { name }) || `Posting language: ${name}`;
+  }
+
+  function createLanguagePill(jobId, code) {
+    const pill = document.createElement("div");
+    pill.className = `${BADGE_CLASS} ${LANG_CLASS}`;
+    if (jobId) pill.dataset.lgs96JobId = jobId;
+    const label = document.createElement("span");
+    label.className = LANG_LABEL_CLASS;
+    pill.appendChild(label);
+    updateLanguagePill(pill, code);
+    return pill;
+  }
+
+  function updateLanguagePill(pill, code) {
+    const normalized = normalizePostingLangCode(code);
+    const label = pill.querySelector(`.${LANG_LABEL_CLASS}`);
+    if (normalized === "unknown") {
+      pill.dataset.lgs96Lang = "unknown";
+      pill.removeAttribute("aria-label");
+      if (label) label.textContent = "";
+      pill.style.display = "none";
+      return;
+    }
+    pill.dataset.lgs96Lang = normalized;
+    if (label) label.textContent = postingLangLabel(normalized);
+    pill.setAttribute("aria-label", postingLangAria(normalized));
+    pill.style.display = "";
+  }
+
+  function getLanguagePill(badge) {
+    const next = badge.nextElementSibling;
+    if (next && next.classList && next.classList.contains(LANG_CLASS))
+      return next;
+    return null;
+  }
+
+  function syncLanguagePill(badge, code) {
+    const normalized = normalizePostingLangCode(code);
+    badge.dataset.lgs96PostingLang = normalized;
+    let pill = getLanguagePill(badge);
+    if (!pill) {
+      pill = createLanguagePill(
+        badge.dataset.lgs96JobId || null,
+        normalized,
+      );
+      badge.insertAdjacentElement("afterend", pill);
+      return pill;
+    }
+    if (badge.dataset.lgs96JobId)
+      pill.dataset.lgs96JobId = badge.dataset.lgs96JobId;
+    updateLanguagePill(pill, normalized);
+    return pill;
   }
 
   function createLight() {
@@ -291,11 +384,23 @@
       : getParagraphAdapter(card);
     if (!adapter) return;
 
-    const existing = card.querySelector(`.${BADGE_CLASS}`);
+    const existing = card.querySelector(`.${BADGE_CLASS}:not(.${LANG_CLASS})`);
     if (existing) {
       const existingJobId = existing.dataset.lgs96JobId || null;
-      if (!adapter.jobId || existingJobId === adapter.jobId) return;
+      if (!adapter.jobId || existingJobId === adapter.jobId) {
+        if (!getLanguagePill(existing)) {
+          syncLanguagePill(
+            existing,
+            existing.dataset.lgs96PostingLang ||
+              detectPostingLang(adapter.fields.join("\n")),
+          );
+        }
+        return;
+      }
       existing.remove();
+      card
+        .querySelectorAll(`.${BADGE_CLASS}.${LANG_CLASS}`)
+        .forEach((pill) => pill.remove());
     }
 
     const defaultCurrency = resolveDefaultCurrency(adapter.locationText);
@@ -317,9 +422,12 @@
     adapter.titleWrapper.insertAdjacentElement("afterend", badge);
     observeBadgeVisibility(badge);
 
+    const cardPostingLang = detectPostingLang(adapter.fields.join("\n"));
+    syncLanguagePill(badge, cardPostingLang);
+
     if (cardMatch) {
-      applySalaryInfo(badge, cardMatch.info, cardMatch.text, "card");
-      saveCardSalaryCache(adapter.jobId, cardMatch.info, cardMatch.text);
+      applySalaryInfo(badge, cardMatch.info, cardMatch.text, "card", cardPostingLang);
+      saveCardSalaryCache(adapter.jobId, cardMatch.info, cardMatch.text, cardPostingLang);
       return;
     }
     attachOrEnqueueSalaryCheck(badge, adapter.jobId, defaultCurrency);
@@ -371,6 +479,19 @@
     }, SCAN_DEBOUNCE_MS);
   }
 
+  function removeBadgePair(badge) {
+    // Salary badges and their language pill are inserted as adjacent
+    // siblings; the pill reuses the .lgs96-badge base class but never
+    // carries the loading state, so removing a badge must also remove
+    // its pill or the pill survives as an orphan (and a duplicate pill
+    // gets inserted on the next scan).
+    if (badge.classList && !badge.classList.contains(LANG_CLASS)) {
+      const pill = getLanguagePill(badge);
+      if (pill) pill.remove();
+    }
+    badge.remove();
+  }
+
   function clearRouteWork(removeAllBadges) {
     taskQueue.length = 0;
     pendingChecks.clear();
@@ -384,10 +505,12 @@
     }
     for (const controller of pendingFetchControllers) controller.abort();
     pendingFetchControllers.clear();
+    // The language pill reuses the .lgs96-badge base class, so both selectors
+    // below already cover it; keep the pill on that base class.
     const selector = removeAllBadges
       ? `.${BADGE_CLASS}`
       : `.${BADGE_CLASS}.${STATE_LOADING}`;
-    document.querySelectorAll(selector).forEach((badge) => badge.remove());
+    document.querySelectorAll(selector).forEach(removeBadgePair);
   }
 
   function reconcileRoute() {
@@ -428,10 +551,12 @@
     pollTimer = setInterval(onPollTick, POLL_INTERVAL_MS);
   }
 
-  function saveCardSalaryCache(jobId, info, displayText) {
+  function saveCardSalaryCache(jobId, info, displayText, postingLang) {
     const cache = globalThis.LgsCache;
     if (!cache) return;
-    cache.saveCachedResult(jobId, info, displayText, "card").catch(() => {});
+    cache
+      .saveCachedResult(jobId, info, displayText, "card", postingLang)
+      .catch(() => {});
   }
 
   function attachOrEnqueueSalaryCheck(badge, jobId, defaultCurrency) {
@@ -472,6 +597,7 @@
             entry.result,
             entry.displayText || undefined,
             entry.source || "local-cache",
+            entry.postingLang,
           );
           return;
         }
@@ -494,7 +620,7 @@
     scheduleDispatch();
   }
 
-  function applyPendingResult(jobId, pending, info, displayOverride, source) {
+  function applyPendingResult(jobId, pending, info, displayOverride, source, postingLang) {
     const badges = [...pending.badges].filter(
       (badge) => badge.isConnected && badge.dataset.lgs96JobId === jobId,
     );
@@ -503,7 +629,7 @@
       return;
     }
     for (const badge of badges) {
-      applySalaryInfo(badge, info, displayOverride, source);
+      applySalaryInfo(badge, info, displayOverride, source, postingLang);
     }
     pendingChecks.delete(jobId);
   }
@@ -515,7 +641,7 @@
           const error = chrome.runtime.lastError;
           resolve(error ? null : response || null);
         });
-      } catch (error) {
+      } catch {
         resolve(null);
       }
     });
@@ -659,14 +785,14 @@
     activeCount++;
     sessionFetchesUsed++;
     checkSalaryForJob(task.jobId, task.defaultCurrency)
-      .then(async (info) => {
+      .then(async ({ info, postingLang }) => {
         const cache = globalThis.LgsCache;
         if (cache)
           await cache
-            .saveCachedResult(task.jobId, info, null, "description")
+            .saveCachedResult(task.jobId, info, null, "description", postingLang)
             .catch(() => {});
         for (const badge of pendingBadges(pending, task)) {
-          applySalaryInfo(badge, info, undefined, "description");
+          applySalaryInfo(badge, info, undefined, "description", postingLang);
         }
       })
       .catch(() => {
@@ -780,12 +906,13 @@
   }
 
   function checkSalaryForJob(jobId, defaultCurrency) {
-    return fetchJobDescription(jobId).then((descriptionText) =>
-      findSalaryInfo(descriptionText, {
+    return fetchJobDescription(jobId).then((descriptionText) => ({
+      info: findSalaryInfo(descriptionText, {
         defaultCurrency,
         allowBareRange: true,
       }),
-    );
+      postingLang: detectPostingLang(descriptionText),
+    }));
   }
 
   function createFlagIcon() {
@@ -862,12 +989,12 @@
   }
 
   function refreshTargetHighlight() {
-    document.querySelectorAll(`.${BADGE_CLASS}`).forEach((badge) => {
+    document.querySelectorAll(`.${BADGE_CLASS}:not(.${LANG_CLASS})`).forEach((badge) => {
       applyTargetHighlight(badge, readBadgeInfo(badge));
     });
   }
 
-  function applySalaryInfo(badge, info, displayOverride, source) {
+  function applySalaryInfo(badge, info, displayOverride, source, postingLang) {
     if (!badge.isConnected) return;
 
     const parser = globalThis.SalaryParser;
@@ -904,6 +1031,7 @@
 
     swapSpinnerForLight(badge);
     setBadgeText(badge, labelText);
+    if (postingLang !== undefined) syncLanguagePill(badge, postingLang);
   }
 
   function applyCheckError(badge) {
@@ -957,6 +1085,18 @@
       value: label ? label.textContent.trim() : "",
       source: badge.dataset.lgs96Source || "unknown",
     };
+  }
+
+  function readPostingLangFromBadge(badge) {
+    // Posting language lives on the badge mirror dataset (synced with the
+    // pill by syncLanguagePill) with the pill dataset as fallback.
+    // Never bare `language` — that name is the UI locale (see currentLanguage).
+    if (!badge) return "unknown";
+    const mirrored = badge.dataset.lgs96PostingLang;
+    if (SUPPORTED_POSTING_LANGS.has(mirrored)) return mirrored;
+    const pill = getLanguagePill(badge);
+    const fromPill = pill ? pill.dataset.lgs96Lang : null;
+    return SUPPORTED_POSTING_LANGS.has(fromPill) ? fromPill : "unknown";
   }
 
   function reportFocusables() {
@@ -1278,6 +1418,7 @@
         detected_value: ui.detected.value,
         detected_source: ui.detected.source,
         language: currentLanguage(),
+        posting_language: readPostingLangFromBadge(ui.badge),
         extension_version: extensionVersion(),
       },
     });
@@ -1338,7 +1479,7 @@
       none: NO_SALARY_TEXT_KEY,
       error: ERROR_TEXT_KEY,
     };
-    document.querySelectorAll(`.${BADGE_CLASS}`).forEach((badge) => {
+    document.querySelectorAll(`.${BADGE_CLASS}:not(.${LANG_CLASS})`).forEach((badge) => {
       const key = stateKeys[badge.dataset.lgs96State];
       if (key) setBadgeText(badge, loc(key));
       const flag = badge.querySelector(`.${FLAG_CLASS}`);
@@ -1350,6 +1491,9 @@
           ),
         );
       }
+    });
+    document.querySelectorAll(`.${BADGE_CLASS}.${LANG_CLASS}`).forEach((pill) => {
+      updateLanguagePill(pill, pill.dataset.lgs96Lang);
     });
   }
 

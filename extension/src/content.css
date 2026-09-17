@@ -58,6 +58,17 @@
   opacity: 0.45;
 }
 
+.lgs96-badge--lang {
+  margin-left: 6px;
+  border-color: rgba(56, 67, 79, 0.2);
+  background-color: #eef3f8;
+  color: #38434f;
+}
+
+.lgs96-badge__lang-label {
+  white-space: nowrap;
+}
+
 .lgs96-badge__spinner {
   flex: none;
   width: 12px;

@@ -1,12 +1,12 @@
-(function (root, factory) {
+((root, factory) => {
   const api = factory();
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   } else {
     root.LgsLocalization = api;
   }
-})(typeof globalThis !== "undefined" ? globalThis : self, () => {
-  "use strict";
+})(typeof globalThis === "undefined" ? self : globalThis, () => {
+
 
   const SETTING_KEY = "lgs96:language";
   const MSG_TYPE = "lgs96:localizationGet";
@@ -64,6 +64,23 @@
     "feedback_thanks_title",
     "feedback_thanks",
     "feedback_error",
+    "posting_lang_en",
+    "posting_lang_it",
+    "posting_lang_fr",
+    "posting_lang_de",
+    "posting_lang_es",
+    "posting_lang_pt",
+    "posting_lang_nl",
+    "posting_lang_pl",
+    "posting_lang_aria",
+    "posting_lang_name_en",
+    "posting_lang_name_it",
+    "posting_lang_name_fr",
+    "posting_lang_name_de",
+    "posting_lang_name_es",
+    "posting_lang_name_pt",
+    "posting_lang_name_nl",
+    "posting_lang_name_pl",
   ];
 
   const FALLBACK_CATALOG = {
@@ -123,10 +140,27 @@
     feedback_thanks: "Your report helps make LGS-96 more accurate.",
     feedback_error:
       "Something went wrong while sending your report. Please try again.",
+    posting_lang_en: "EN",
+    posting_lang_it: "IT",
+    posting_lang_fr: "FR",
+    posting_lang_de: "DE",
+    posting_lang_es: "ES",
+    posting_lang_pt: "PT",
+    posting_lang_nl: "NL",
+    posting_lang_pl: "PL",
+    posting_lang_aria: "Posting language: {name}",
+    posting_lang_name_en: "English",
+    posting_lang_name_it: "Italian",
+    posting_lang_name_fr: "French",
+    posting_lang_name_de: "German",
+    posting_lang_name_es: "Spanish",
+    posting_lang_name_pt: "Portuguese",
+    posting_lang_name_nl: "Dutch",
+    posting_lang_name_pl: "Polish",
   };
 
   function storage() {
-    const chromeApi = typeof chrome !== "undefined" ? chrome : null;
+    const chromeApi = typeof chrome === "undefined" ? null : chrome;
     return chromeApi && chromeApi.storage && chromeApi.storage.local
       ? chromeApi.storage.local
       : null;
@@ -149,7 +183,7 @@
         continue;
       }
       const key = match[1];
-      if (Object.prototype.hasOwnProperty.call(entries, key)) {
+      if (Object.hasOwn(entries, key)) {
         errors.push(`line ${i + 1}: duplicate key "${key}"`);
         continue;
       }
@@ -169,7 +203,7 @@
     const missing = [];
     const empty = [];
     for (const key of REQUIRED_KEYS) {
-      if (!Object.prototype.hasOwnProperty.call(entries, key)) {
+      if (!Object.hasOwn(entries, key)) {
         missing.push(key);
       } else if (
         typeof entries[key] !== "string" ||
@@ -220,14 +254,14 @@
 
   function interpolate(template, params) {
     return String(template).replace(/\{(\w+)\}/g, (match, name) =>
-      params && Object.prototype.hasOwnProperty.call(params, name)
+      params && Object.hasOwn(params, name)
         ? String(params[name])
         : match,
     );
   }
 
   function translate(entries, key, params) {
-    if (!entries || !Object.prototype.hasOwnProperty.call(entries, key))
+    if (!entries || !Object.hasOwn(entries, key))
       return null;
     const template = entries[key];
     if (typeof template !== "string") return null;
